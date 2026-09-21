@@ -6,6 +6,7 @@ import pytest
 from chess_env.actions import (
     NUM_ACTIONS,
     action_mask,
+    action_squares,
     decode_action,
     encode_move,
 )
@@ -60,6 +61,15 @@ def test_underpromotion_roundtrip() -> None:
     assert decode_action(board, encode_move(board, knight)) == knight
     assert decode_action(board, encode_move(board, queen)) == queen
     assert encode_move(board, knight) != encode_move(board, queen)
+
+
+def test_action_squares_match_player_view_move() -> None:
+    board = chess.Board()
+    for move in board.legal_moves:
+        action = encode_move(board, move)
+        origin, dest = action_squares(action)
+        assert origin == move.from_square
+        assert dest == move.to_square
 
 
 def test_black_and_white_castling_share_player_view_action() -> None:

@@ -48,18 +48,41 @@ def human_policy(env: ChessEnv) -> Any:
     return _policy
 
 
+def _side_policy(kind: str, env: ChessEnv, args: argparse.Namespace):
+    if kind == "human":
+        return human_policy(env)
+    if kind == "random":
+        return random_policy(env)
+    if kind == "expert":
+        import numpy as np
+
+        from chess_gan.expert import expert_policy
+
+        rng = np.random.default_rng(args.seed if args.seed is not None else 0)
+        return expert_policy(env, rng, epsilon=0.0)
+    if kind == "gan":
+        if not args.checkpoint:
+            raise SystemExit("--checkpoint is required when a side is 'gan'")
+        from chess_gan.agent import GanAgent
+
+        return GanAgent(args.checkpoint, device=args.device, deterministic=True)
+    raise ValueError(kind)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Play chess in the RL environment.")
-    parser.add_argument("--white", choices=("human", "random"), default="human")
-    parser.add_argument("--black", choices=("human", "random"), default="random")
+    parser.add_argument("--white", choices=("human", "random", "expert", "gan"), default="human")
+    parser.add_argument("--black", choices=("human", "random", "expert", "gan"), default="random")
     parser.add_argument("--fen", default=None, help="Start from this FEN instead of the initial position.")
     parser.add_argument("--max-plies", type=int, default=512)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--checkpoint", default="models/r3gan.pt")
+    parser.add_argument("--device", default="auto")
     args = parser.parse_args(argv)
 
     env = ChessEnv(max_plies=args.max_plies)
-    white = human_policy(env) if args.white == "human" else random_policy(env)
-    black = human_policy(env) if args.black == "human" else random_policy(env)
+    white = _side_policy(args.white, env, args)
+    black = _side_policy(args.black, env, args)
 
     episode = play_episode(
         white,

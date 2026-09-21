@@ -111,21 +111,19 @@ def encode_move(board: chess.Board, move: chess.Move) -> int:
     return view_move.from_square * PLANES + plane
 
 
-def decode_action(board: chess.Board, action: int) -> chess.Move:
-    """Map an action index back to a ``python-chess`` move on ``board``.
+def action_squares(action: int) -> tuple[int, int | None]:
+    """Player-view ``(from_square, to_square)`` for an action index.
 
-    Geometry that leaves the board becomes ``Move.null()``, which is never
-    legal. Pawn moves onto the last rank that were encoded as queen-like
-    slides are decoded as queen promotions.
+    ``to_square`` is ``None`` when the plane slides off the board. The
+    discriminator uses this geometry as two 8x8 planes; it does not need
+    a legal-move mask in the board tensor.
     """
     if action < 0 or action >= NUM_ACTIONS:
-        return chess.Move.null()
-
+        return 0, None
     from_square = action // PLANES
     plane = action % PLANES
     from_file = chess.square_file(from_square)
     from_rank = chess.square_rank(from_square)
-    promotion: int | None = None
 
     if plane < QUEEN_PLANES:
         dist = plane // 8 + 1
@@ -140,14 +138,33 @@ def decode_action(board: chess.Board, action: int) -> chess.Move:
         sub = plane - QUEEN_PLANES - KNIGHT_PLANES
         dx = sub // 3 - 1
         dy = 1
-        promotion = UNDERPROMO_PIECES[sub % 3]
         to_file = from_file + dx
         to_rank = from_rank + dy
 
     if not (0 <= to_file < 8 and 0 <= to_rank < 8):
+        return from_square, None
+    return from_square, chess.square(to_file, to_rank)
+
+
+def _underpromotion_piece(action: int) -> int | None:
+    plane = action % PLANES
+    if plane < QUEEN_PLANES + KNIGHT_PLANES:
+        return None
+    return UNDERPROMO_PIECES[(plane - QUEEN_PLANES - KNIGHT_PLANES) % 3]
+
+
+def decode_action(board: chess.Board, action: int) -> chess.Move:
+    """Map an action index back to a ``python-chess`` move on ``board``.
+
+    Geometry that leaves the board becomes ``Move.null()``, which is never
+    legal. Pawn moves onto the last rank that were encoded as queen-like
+    slides are decoded as queen promotions.
+    """
+    from_square, to_square = action_squares(action)
+    if to_square is None:
         return chess.Move.null()
 
-    to_square = chess.square(to_file, to_rank)
+    promotion = _underpromotion_piece(action)
     view_move = chess.Move(from_square, to_square, promotion=promotion)
     real_move = from_player_view(board, view_move)
 
@@ -174,3 +191,16 @@ def action_mask(board: chess.Board) -> list[int]:
     for move in board.legal_moves:
         mask[encode_move(board, move)] = 1
     return mask
+
+
+def _square_lookup_tables() -> tuple[tuple[int, ...], tuple[int, ...]]:
+    from_sq: list[int] = []
+    to_sq: list[int] = []
+    for action in range(NUM_ACTIONS):
+        origin, dest = action_squares(action)
+        from_sq.append(origin)
+        to_sq.append(-1 if dest is None else dest)
+    return tuple(from_sq), tuple(to_sq)
+
+
+ACTION_FROM_SQUARE, ACTION_TO_SQUARE = _square_lookup_tables()

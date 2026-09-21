@@ -93,6 +93,60 @@ Draws (stalemate, fifty-move, threefold, insufficient material) are claimed auto
 pytest
 ```
 
-## Next
+## Legal moves and the GAN
 
-A GAN for chess is not an image GAN. The usual fit is **generative adversarial imitation**: the generator is a policy over this action space, the discriminator scores “does this look like strong play?”, and they train on games produced here. This environment is the substrate for that.
+Available moves are **not** extra board planes. They are a constraint on the action, not a picture of the position.
+
+- The board tensor stays `(20, 8, 8)` — pieces, castling, ep, colour, clocks.
+- `obs["action_mask"]` is applied as **−∞ on illegal logits** in the policy head (AlphaZero / Leela style). The generator physically cannot sample an illegal move.
+- The discriminator sees the **chosen** move as two 8×8 planes (from-square, to-square) concatenated with the board. Illegal `(s, a)` pairs never enter training.
+
+Stuffing the 4672-d mask into the state would waste capacity and force the net to *learn* legality instead of being hard-constrained.
+
+## GAN (R3GAN)
+
+The trainer is **R3GAN** (Huang et al., NeurIPS 2024) adapted to discrete chess:
+
+| Piece | Role |
+| --- | --- |
+| Generator | Residual CNN policy `π(a\|s)` + value head. Illegal actions masked. |
+| Discriminator | Residual critic `D(s, a)`. Higher score = more like strong play. |
+| Loss | Relativistic pairing GAN + zero-centered **R1** and **R2** gradient penalties. No BatchNorm, Adam `β₁=0`. |
+| Generator step | Actions are discrete, so G is updated with **PPO**, reward = game outcome + `gan_coef * tanh(D(s,a))`. |
+| Real data | ε-greedy material+PST expert, plus winning self-play plies (self-imitation). |
+
+```bash
+# Train locally (writes models/r3gan.pt)
+python -m chess_gan.train --iterations 50 --games 4 --device auto
+
+# Evaluate vs random and the greedy expert
+python -m chess_gan.eval --checkpoint models/r3gan.pt --games 20
+
+# Play against the trained bot
+python -m chess_env.play --white human --black gan --checkpoint models/r3gan.pt
+```
+
+### Train on Modal
+
+Runs the same trainer on a cloud GPU. Checkpoints are stored on a Modal Volume and copied back to `models/r3gan.pt`.
+
+```bash
+pip install "modal>=1.0"
+modal setup                         # once: browser login
+
+# from the repo root
+modal run -m chess_gan.train_modal
+modal run -m chess_gan.train_modal --gpu A100 --iterations 500 --games 32
+
+# resume an interrupted run (default) or pull weights only
+modal run -m chess_gan.train_modal --resume
+modal run -m chess_gan.train_modal --download-only
+```
+
+GPU options: `T4`, `L4`, `A10` (default), `A100`, `A100-80GB`, `L40S`, `H100`. Timeout default is 8 hours (`--timeout-hours 24` for the platform max). If a container dies, the next run loads `/vol/models/r3gan.pt` from the `chess-rl-models` Volume.
+
+```bash
+modal volume get chess-rl-models models/r3gan.pt models/r3gan.pt
+```
+
+This is adversarial *imitation of play*, not an image GAN. The relativistic critic compares real `(s, a)` to generated `(s, a)` pairwise, which is what stops mode collapse in modern GANs. Game outcome stays in the reward so the policy cannot win the GAN game by playing nonsense that merely fools D.

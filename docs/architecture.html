@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>chess_rl architecture</title>
+  <style>
+    :root {
+      --bg: #161410;
+      --panel: #211c16;
+      --panel-2: #2a241c;
+      --ink: #f3ead8;
+      --muted: #b8a88a;
+      --line: #3d3428;
+      --gold: #e4c36a;
+      --env: #7dba8a;
+      --gan: #6cb8c9;
+      --net: #c48ad4;
+      --data: #e08a62;
+      --ext: #8e8678;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+      width: 1600px;
+    }
+    body { padding: 28px 36px 32px; }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 34px;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.45;
+      max-width: 1100px;
+    }
+    .subtitle code, .file, code {
+      font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    }
+    .legend {
+      display: flex;
+      gap: 18px;
+      margin: -8px 0 24px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .swatch {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+
+    .layers { display: grid; gap: 14px; }
+    .layer {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px 18px;
+    }
+    .layer-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .layer-title {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .layer-note { font-size: 13px; color: var(--muted); }
+
+    .row { display: grid; gap: 12px; }
+    .row.four { grid-template-columns: repeat(4, 1fr); }
+    .row.two { grid-template-columns: 1fr 1fr; }
+    .row.three { grid-template-columns: 1.15fr 0.95fr 0.9fr; }
+    .row.stack { grid-template-columns: 1fr; }
+
+    .card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px 11px;
+      border-left: 4px solid var(--ext);
+    }
+    .card.env { border-left-color: var(--env); }
+    .card.gan { border-left-color: var(--gan); }
+    .card.net { border-left-color: var(--net); }
+    .card.data { border-left-color: var(--data); }
+    .card.gold { border-left-color: var(--gold); }
+    .name {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13.5px;
+      font-weight: 650;
+      margin-bottom: 5px;
+    }
+    .role { font-size: 13px; color: var(--muted); line-height: 1.35; }
+
+    .arrow-row {
+      display: flex;
+      justify-content: center;
+      color: var(--gold);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 2px 0;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 14px;
+    }
+    .pkg {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px 18px;
+    }
+    .pkg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pkg-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      position: relative;
+    }
+    .step {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 13px 14px;
+    }
+    .n {
+      display: inline-flex;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--gold);
+      color: #1a1610;
+      font-size: 12px;
+      font-weight: 800;
+      align-items: center;
+      justify-content: center;
+      margin-right: 8px;
+    }
+    .step h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+    }
+    .step ul {
+      margin: 0;
+      padding: 0 0 0 16px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .step code { color: var(--ink); font-size: 12px; }
+
+    .tensors {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    .tensor {
+      background: #18140f;
+      border: 1px dashed #5a4c38;
+      border-radius: 10px;
+      padding: 11px 12px;
+    }
+    .tensor .k { color: var(--gold); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .tensor .v { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+
+    .imports {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted);
+      background: #18140f;
+      border-radius: 10px;
+      padding: 12px 14px;
+      white-space: pre;
+    }
+    .imports b { color: var(--ink); font-weight: 650; }
+
+    .foot {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>chess_rl architecture</h1>
+  <p class="subtitle">
+    Two packages stacked on <code>python-chess</code>.
+    <code>chess_env</code> turns a board into a fixed tensor and a 4672-way legal-move mask.
+    <code>chess_gan</code> trains a residual policy with an R3GAN critic; because moves are discrete, the generator step is PPO.
+  </p>
+  <div class="legend">
+    <span><i class="swatch" style="background:#e4c36a"></i>entry</span>
+    <span><i class="swatch" style="background:#6cb8c9"></i>training</span>
+    <span><i class="swatch" style="background:#c48ad4"></i>networks</span>
+    <span><i class="swatch" style="background:#e08a62"></i>data</span>
+    <span><i class="swatch" style="background:#7dba8a"></i>environment</span>
+  </div>
+
+  <div class="layers">
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">1 · Entry points · what you run</div>
+        <div class="layer-note">Declared as scripts in pyproject.toml · train_modal wraps train.py on a GPU</div>
+      </div>
+      <div class="row four">
+        <div class="card gold">
+          <div class="name">chess_env/play.py</div>
+          <div class="role">Terminal game. Sides: human, random, expert, gan. Loads a checkpoint through GanAgent.</div>
+        </div>
+        <div class="card gold">
+          <div class="name">chess_gan/train.py</div>
+          <div class="role">Local training loop. Owns the iteration: buffer, self-play, D step, PPO, EMA, checkpoint.</div>
+        </div>
+        <div class="card gold">
+          <div class="name">chess_gan/eval.py</div>
+          <div class="role">Score a checkpoint vs random and the greedy expert using play_episode.</div>
+        </div>
+        <div class="card gold">
+          <div class="name">chess_gan/train_modal.py</div>
+          <div class="role">Modal GPU job. Calls train_from_kwargs, stores models/r3gan.pt on a Volume.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="split">
+      <section class="pkg">
+        <div class="layer-head">
+          <div class="layer-title" style="color:#6cb8c9">2 · chess_gan · policy + critic</div>
+          <div class="layer-note">R3GAN imitation of play, plus game outcome in the reward</div>
+        </div>
+        <div class="pkg-grid" style="margin-bottom:10px">
+          <div class="card net">
+            <div class="name">nets.py</div>
+            <div class="role">Generator: π(a|s) + V(s), illegal logits → −∞. Discriminator: D(s,a) scalar. Shared residual CNN, no BatchNorm.</div>
+          </div>
+          <div class="card gan">
+            <div class="name">agent.py</div>
+            <div class="role">Load models/r3gan.pt (EMA weights). Callable policy for play_episode / play.py.</div>
+          </div>
+          <div class="card gan">
+            <div class="name">rollout.py</div>
+            <div class="role">Generator vs itself via play_episode. Stores boards, masks, actions, logp, values, game returns.</div>
+          </div>
+          <div class="card gan">
+            <div class="name">ppo.py</div>
+            <div class="role">Clipped PPO on the generator. Reward = game outcome + gan_coef × tanh(D).</div>
+          </div>
+          <div class="card gan">
+            <div class="name">losses.py</div>
+            <div class="role">Relativistic pairing GAN + zero-centered R1/R2 gradient penalties on D.</div>
+          </div>
+          <div class="card data">
+            <div class="name">features.py</div>
+            <div class="role">Action → two 8×8 from/to planes. Concatenate with board → (22, 8, 8) for D.</div>
+          </div>
+          <div class="card data">
+            <div class="name">buffer.py</div>
+            <div class="role">Replay of real (board, action, mask). Seeded by expert, topped up with winning self-play plies.</div>
+          </div>
+          <div class="card data">
+            <div class="name">expert.py</div>
+            <div class="role">ε-greedy 1-ply material + piece-square teacher. The first “real” distribution for D.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pkg">
+        <div class="layer-head">
+          <div class="layer-title" style="color:#7dba8a">3 · chess_env · the game</div>
+          <div class="layer-note">One policy plays both colors · player-relative view</div>
+        </div>
+        <div class="pkg-grid" style="grid-template-columns:1fr; margin-bottom:10px">
+          <div class="card env">
+            <div class="name">episode.py</div>
+            <div class="role">play_episode(white, black) runs a full game. Episode.return_for_side labels every ply with +1 / 0 / −1. random_policy lives here.</div>
+          </div>
+          <div class="card env">
+            <div class="name">env.py · ChessEnv</div>
+            <div class="role">Gymnasium wrapper. reset / step. obs = {board, action_mask}. Sparse step reward; illegal move → −1 and end.</div>
+          </div>
+          <div class="card env">
+            <div class="name">encode.py</div>
+            <div class="role">Board → (20, 8, 8) float32. Pieces, castling, ep, colour, fifty-move, repetition. Black-to-move boards are mirrored.</div>
+          </div>
+          <div class="card env">
+            <div class="name">actions.py</div>
+            <div class="role">AlphaZero map 8×8×73 = 4672. encode_move / decode_action / action_mask. Always in the side-to-move’s view.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">4 · One training iteration · train.py</div>
+        <div class="layer-note">Left to right, every loop. Modal runs this same function on a GPU.</div>
+      </div>
+      <div class="flow">
+        <div class="step">
+          <h3><span class="n">1</span> Fill real data</h3>
+          <ul>
+            <li>Start: <code>expert.py</code> games → <code>buffer.py</code></li>
+            <li>Each iter: more expert games</li>
+            <li>Winning self-play plies join the buffer (self-imitation)</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="n">2</span> Self-play</h3>
+          <ul>
+            <li><code>rollout.py</code> wraps Generator as a policy</li>
+            <li>Calls <code>play_episode</code> on the env</li>
+            <li>Illegal logits already masked in <code>nets.py</code></li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="n">3</span> Update D</h3>
+          <ul>
+            <li>Real (s,a) from buffer, fake from rollout</li>
+            <li><code>features.py</code> packs (22, 8, 8)</li>
+            <li><code>losses.py</code> relativistic D + R1/R2</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="n">4</span> Update G, save</h3>
+          <ul>
+            <li>Reward = outcome + tanh(D)</li>
+            <li><code>ppo.py</code> steps the Generator</li>
+            <li>EMA copy → <code>models/r3gan.pt</code> → <code>agent.py</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">5 · Tensors that glue the files together</div>
+        <div class="layer-note">Nothing else crosses the env / GAN boundary</div>
+      </div>
+      <div class="tensors">
+        <div class="tensor">
+          <div class="k">Observation board</div>
+          <div class="v">obs["board"]</div>
+          <div class="role" style="margin-top:4px">(20, 8, 8) float32 · encode.py</div>
+        </div>
+        <div class="tensor">
+          <div class="k">Legal-move mask</div>
+          <div class="v">obs["action_mask"]</div>
+          <div class="role" style="margin-top:4px">(4672,) int8 · actions.py</div>
+        </div>
+        <div class="tensor">
+          <div class="k">Action</div>
+          <div class="v">int, 0 to 4671</div>
+          <div class="role" style="margin-top:4px">policy output · decode in env.py</div>
+        </div>
+        <div class="tensor">
+          <div class="k">Discriminator input</div>
+          <div class="v">(22, 8, 8)</div>
+          <div class="role" style="margin-top:4px">board + from/to · features.py</div>
+        </div>
+        <div class="tensor">
+          <div class="k">Checkpoint</div>
+          <div class="v">models/r3gan.pt</div>
+          <div class="role" style="margin-top:4px">G, D, EMA, opts · train.py</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="split">
+      <section class="pkg">
+        <div class="layer-head">
+          <div class="layer-title">6 · Who imports whom</div>
+          <div class="layer-note">Arrows mean “this file calls / constructs that one”</div>
+        </div>
+        <div class="imports"><b>play.py / eval.py</b>  →  episode, env, agent, expert
+<b>train_modal.py</b>      →  train.py
+
+<b>train.py</b>            →  env, episode, expert, buffer,
+                       rollout, nets, losses, ppo
+
+<b>rollout.py</b>          →  env, episode, nets.Generator
+<b>ppo.py</b>              →  nets.Generator, rollout.Rollout
+<b>losses.py</b>           →  features.py
+<b>agent.py</b>            →  nets.Generator
+<b>features.py</b>         →  actions.py  (from/to squares)
+<b>buffer.py</b>           →  episode, encode, actions
+<b>expert.py</b>           →  env, actions.encode_move
+
+<b>episode.py</b>          →  env.ChessEnv
+<b>env.py</b>              →  encode.py, actions.py
+<b>encode.py, actions.py</b> →  python-chess only</div>
+      </section>
+      <section class="pkg">
+        <div class="layer-head">
+          <div class="layer-title">7 · Tests · one file per layer</div>
+          <div class="layer-note">pytest from the repo root</div>
+        </div>
+        <div class="pkg-grid" style="grid-template-columns:1fr">
+          <div class="card env">
+            <div class="name">tests/test_actions.py</div>
+            <div class="role">Round-trip encode/decode, promotions, castling, player-view mirroring.</div>
+          </div>
+          <div class="card env">
+            <div class="name">tests/test_encode.py</div>
+            <div class="role">Plane count, piece locations, Black-to-move mirror.</div>
+          </div>
+          <div class="card env">
+            <div class="name">tests/test_env.py</div>
+            <div class="role">ChessEnv step/reset, illegal penalty, play_episode outcomes.</div>
+          </div>
+          <div class="card gan">
+            <div class="name">tests/test_gan.py</div>
+            <div class="role">Generator masking, D input packing, PPO update, expert greedy move.</div>
+          </div>
+        </div>
+        <p class="foot">
+          Public re-exports: <code>chess_env/__init__.py</code> (ChessEnv, Episode, encode/decode)
+          and <code>chess_gan/__init__.py</code> (GanAgent, Generator, Discriminator).
+          External: python-chess, Gymnasium, PyTorch, Modal.
+        </p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
