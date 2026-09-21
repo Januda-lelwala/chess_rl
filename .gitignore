@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.DS_Store
+.coverage
+htmlcov/
+
+# training artifacts
+models/*.pt
+models/*.pth
+models/*.ckpt
+models/*.onnx
+!models/.gitkeep
